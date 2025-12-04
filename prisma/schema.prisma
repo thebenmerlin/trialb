@@ -87,23 +87,20 @@ model VerificationToken {
 // Domain models
 //
 model Budget {
-  id         String    @id @default(cuid())
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  // Academic/financial tracking
-  year       Int
-  proposed   Decimal   @db.Decimal(14,2)
-  allotted   Decimal   @db.Decimal(14,2)
-  variance   Decimal   @db.Decimal(14,2)
+  year         Int
+  proposed     Decimal   @db.Decimal(14,2)
+  allotted     Decimal   @db.Decimal(14,2)
+  variance     Decimal   @db.Decimal(14,2)
 
-  // Owner/creator of the budget record
-  createdById String?
-  createdBy   User?     @relation("UserBudgets", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById  String?
+  createdBy    User?     @relation("UserBudgets", fields: [createdById], references: [id], onDelete: SetNull)
 
-  // Relations
-  categories  Category[]
-  expenses    Expense[]  // <-- back relation to Expense.budget
+  categories   Category[]
+  expenses     Expense[]   // back-relation to Expense.budget
 
   @@index([year])
 }
@@ -140,14 +137,12 @@ model Expense {
 
   status           ExpenseStatus @default(PENDING)
 
-  // Relations to Category and Budget
   categoryId       String
   category         Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   budgetId         String
   budget           Budget        @relation(fields: [budgetId], references: [id], onDelete: Cascade)
 
-  // Creator and approver relations
   createdById      String?
   createdBy        User?         @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
@@ -156,11 +151,10 @@ model Expense {
 
   approvedAt       DateTime?
 
-  // Receipt storage via Cloudinary
   receiptUrl       String?
   receiptPublicId  String?
 
-  auditLogs        AuditLog[]
+  auditLogs        AuditLog[]    // back-relation via AuditLog.expense
 
   @@index([budgetId])
   @@index([categoryId])
@@ -179,4 +173,11 @@ model AuditLog {
   entityType  String
   entityId    String
   metadata    Json?
+
+  // Add explicit relation to Expense to satisfy Expense.auditLogs
+  expenseId   String?
+  expense     Expense?  @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([expenseId])
 }
