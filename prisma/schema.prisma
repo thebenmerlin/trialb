@@ -1,0 +1,199 @@
+// prisma/schema.prisma
+
+// Database provider
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================
+// Enums
+// =====================
+
+enum Role {
+  ADMIN
+  HOD
+  STAFF
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// =====================
+// NextAuth adapter models
+// =====================
+// These are the standard models used by NextAuth's Prisma Adapter.
+
+model User {
+  id                String   @id @default(cuid())
+  name              String?
+  email             String?  @unique
+  emailVerified     DateTime?
+  image             String?
+  role              Role     @default(STAFF)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  accounts          Account[]
+  sessions          Session[]
+
+  // Domain relations
+  budgets           Budget[]        @relation("UserBudgets")
+  expensesCreated   Expense[]       @relation("ExpenseCreatedBy")
+  expensesApproved  Expense[]       @relation("ExpenseApprovedBy")
+  auditLogs         AuditLog[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// =====================
+// Domain models
+// =====================
+
+model Budget {
+  id         String    @id @default(cuid())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Academic tracking
+  year       Int
+  // Proposed vs. allotted values; variance can be computed or stored
+  proposed   Decimal   @db.Decimal(14,2)
+  allotted   Decimal   @db.Decimal(14,2)
+  variance   Decimal   @db.Decimal(14,2)
+
+  // Owner/creator of this budget record
+  createdById String?
+  createdBy   User?     @relation("UserBudgets", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Relations
+  categories Category[]
+
+  @@index([year])
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // e.g., Infrastructure, Hardware, Software, Workshops, FDP, ExpertTalks, Events, Stationery, StudentActivities, Misc
+  name        String
+  description String?
+
+  // Allocation within a budget for this category
+  allocated   Decimal   @db.Decimal(14,2)
+
+  // Relations to Budget
+  budgetId    String
+  budget      Budget    @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  // Expenses under this category
+  expenses    Expense[]
+
+  @@index([budgetId])
+  @@unique([budgetId, name]) // Unique category name per budget/year
+}
+
+model Expense {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Core fields
+  title         String
+  description   String?
+  amount        Decimal   @db.Decimal(14,2)
+  date          DateTime
+
+  // Business fields
+  vendor        String?
+  activity      String?   // e.g., event/workshop name, asset tag
+
+  status        ExpenseStatus @default(PENDING)
+
+  // Relations to Category and Budget
+  categoryId    String
+  category      Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  budgetId      String
+  budget        Budget       @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  // Creator and approver relations
+  createdById   String?
+  createdBy     User?        @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  approvedById  String?
+  approvedBy    User?        @relation("ExpenseApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  approvedAt    DateTime?
+
+  // Receipt storage via Cloudinary
+  receiptUrl       String?   // Public URL to the uploaded receipt file
+  receiptPublicId  String?   // Cloudinary public ID for management
+
+  // Audit log relation (optional direct link)
+  auditLogs     AuditLog[]
+
+  @@index([budgetId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([date])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  timestamp   DateTime  @default(now())
+
+  // actor can be null for system events
+  actorId     String?
+  actor       User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  action      String    // e.g., "EXPENSE_CREATED", "EXPENSE_APPROVED", "BUDGET_UPDATED"
+  entityType  String    // e.g., "Budget", "Category", "Expense", "User"
+  entityId    String    // ID of the entity affected
+
+  // Optional metadata as JSON
+  metadata    Json?
+}
