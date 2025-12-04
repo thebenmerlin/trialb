@@ -1,11 +1,57 @@
-<div align="center">
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+# Smart Department Budget Management System
 
-  <h1>Built with AI Studio</h2>
+A production-grade Next.js 14 application for managing college department budgets, expenses, and analytics.
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Tech Stack
+- **Framework**: Next.js 14 (App Router)
+- **Database**: PostgreSQL (Neon) via Prisma ORM
+- **Authentication**: NextAuth.js
+- **Styling**: TailwindCSS
+- **Storage**: Cloudinary
+- **Charts**: Recharts
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Setup
 
-</div>
+1. **Environment Variables**
+   Copy `.env.example` to `.env` and fill in:
+   ```bash
+   DATABASE_URL="postgresql://..."
+   NEXTAUTH_SECRET="your-secret"
+   NEXTAUTH_URL="http://localhost:3000"
+   CLOUDINARY_CLOUD_NAME="..."
+   CLOUDINARY_API_KEY="..."
+   CLOUDINARY_API_SECRET="..."
+   ```
+
+2. **Install Dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Database Migration**
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
+
+4. **Seed Data**
+   ```bash
+   node scripts/seed.ts
+   ```
+
+5. **Run Development Server**
+   ```bash
+   npm run dev
+   ```
+
+## Credentials (Seed Data)
+- **Admin**: `admin@college.edu` / `password123`
+- **HOD**: `hod@college.edu` / `password123`
+- **Staff**: `staff@college.edu` / `password123`
+
+## Features
+- Role-based Access Control (Admin/HOD/Staff)
+- Receipt Uploads (PDF/Image)
+- Real-time Budget Analytics
+- Expense Approval Workflow
