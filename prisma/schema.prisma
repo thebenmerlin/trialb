@@ -1,6 +1,5 @@
 // prisma/schema.prisma
 
-// Database provider
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,10 +9,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// =====================
+//
 // Enums
-// =====================
-
+//
 enum Role {
   ADMIN
   HOD
@@ -26,11 +24,9 @@ enum ExpenseStatus {
   REJECTED
 }
 
-// =====================
+//
 // NextAuth adapter models
-// =====================
-// These are the standard models used by NextAuth's Prisma Adapter.
-
+//
 model User {
   id                String   @id @default(cuid())
   name              String?
@@ -87,28 +83,27 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// =====================
+//
 // Domain models
-// =====================
-
+//
 model Budget {
   id         String    @id @default(cuid())
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  // Academic tracking
+  // Academic/financial tracking
   year       Int
-  // Proposed vs. allotted values; variance can be computed or stored
   proposed   Decimal   @db.Decimal(14,2)
   allotted   Decimal   @db.Decimal(14,2)
   variance   Decimal   @db.Decimal(14,2)
 
-  // Owner/creator of this budget record
+  // Owner/creator of the budget record
   createdById String?
   createdBy   User?     @relation("UserBudgets", fields: [createdById], references: [id], onDelete: SetNull)
 
   // Relations
-  categories Category[]
+  categories  Category[]
+  expenses    Expense[]  // <-- back relation to Expense.budget
 
   @@index([year])
 }
@@ -118,63 +113,54 @@ model Category {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  // e.g., Infrastructure, Hardware, Software, Workshops, FDP, ExpertTalks, Events, Stationery, StudentActivities, Misc
   name        String
   description String?
-
-  // Allocation within a budget for this category
   allocated   Decimal   @db.Decimal(14,2)
 
-  // Relations to Budget
   budgetId    String
   budget      Budget    @relation(fields: [budgetId], references: [id], onDelete: Cascade)
 
-  // Expenses under this category
   expenses    Expense[]
 
   @@index([budgetId])
-  @@unique([budgetId, name]) // Unique category name per budget/year
+  @@unique([budgetId, name])
 }
 
 model Expense {
-  id            String    @id @default(cuid())
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id               String        @id @default(cuid())
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  // Core fields
-  title         String
-  description   String?
-  amount        Decimal   @db.Decimal(14,2)
-  date          DateTime
+  title            String
+  description      String?
+  amount           Decimal       @db.Decimal(14,2)
+  date             DateTime
+  vendor           String?
+  activity         String?
 
-  // Business fields
-  vendor        String?
-  activity      String?   // e.g., event/workshop name, asset tag
-
-  status        ExpenseStatus @default(PENDING)
+  status           ExpenseStatus @default(PENDING)
 
   // Relations to Category and Budget
-  categoryId    String
-  category      Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId       String
+  category         Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  budgetId      String
-  budget        Budget       @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  budgetId         String
+  budget           Budget        @relation(fields: [budgetId], references: [id], onDelete: Cascade)
 
   // Creator and approver relations
-  createdById   String?
-  createdBy     User?        @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById      String?
+  createdBy        User?         @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
-  approvedById  String?
-  approvedBy    User?        @relation("ExpenseApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedById     String?
+  approvedBy       User?         @relation("ExpenseApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
 
-  approvedAt    DateTime?
+  approvedAt       DateTime?
 
   // Receipt storage via Cloudinary
-  receiptUrl       String?   // Public URL to the uploaded receipt file
-  receiptPublicId  String?   // Cloudinary public ID for management
+  receiptUrl       String?
+  receiptPublicId  String?
 
-  // Audit log relation (optional direct link)
-  auditLogs     AuditLog[]
+  auditLogs        AuditLog[]
 
   @@index([budgetId])
   @@index([categoryId])
@@ -186,14 +172,11 @@ model AuditLog {
   id          String    @id @default(cuid())
   timestamp   DateTime  @default(now())
 
-  // actor can be null for system events
   actorId     String?
   actor       User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
-  action      String    // e.g., "EXPENSE_CREATED", "EXPENSE_APPROVED", "BUDGET_UPDATED"
-  entityType  String    // e.g., "Budget", "Category", "Expense", "User"
-  entityId    String    // ID of the entity affected
-
-  // Optional metadata as JSON
+  action      String
+  entityType  String
+  entityId    String
   metadata    Json?
 }
